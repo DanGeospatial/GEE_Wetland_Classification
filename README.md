@@ -14,6 +14,7 @@ Features:
 - Computes several indices that can be selected for classification
 - Incorporates, SAR, Elevation and Visual Imagery
 - Uses the Random Forest algorithm for Classification
+- Includes basic plots to determine model performance
 
 Indices Computed Within Earth Engine:
 - NDVI
