@@ -10,23 +10,23 @@ Training points should be:
 -representative of value range for each class; limit selection bias
 
 Features:
--Sentinel 2 Imagery with improved cloud masking using the sentinel2-cloud-detector library
--Computes several indices that can be selected for classification
--Incorporates, SAR, Elevation and Visual Imagery
--Uses the Random Forest algorithm for Classification
+- Sentinel 2 Imagery with improved cloud masking using the sentinel2-cloud-detector library
+- Computes several indices that can be selected for classification
+- Incorporates, SAR, Elevation and Visual Imagery
+- Uses the Random Forest algorithm for Classification
 
 Indices Computed Within Earth Engine:
--NDVI
--NDMI
--MNDWI
--EVI2
--SVI
--SRI
+- NDVI
+- NDMI
+- MNDWI
+- EVI2
+- SVI
+- SRI
 
 Indices Computed Within SAGA GIS:
--Topographic Wetness Index
--Topographic Position Index
--Downslope Distance Gradient
+- Topographic Wetness Index
+- Topographic Position Index
+- Downslope Distance Gradient
 
 Instructions:
 
