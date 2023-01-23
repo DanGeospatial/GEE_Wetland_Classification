@@ -7,7 +7,7 @@ In an ideal workflow you will have training points that represent the full range
 Training points should be:
 - generated randomly across your AOI
 - sufficient number of points for each class, especially for those with similar physical properties
-- representative of value range for each class; limit selection bias
+- representative of value range for each class; limit point selection bias
 
 Features:
 - Sentinel 2 Imagery with improved cloud masking using the sentinel2-cloud-detector library
