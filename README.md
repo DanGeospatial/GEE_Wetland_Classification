@@ -1,7 +1,7 @@
 # GEE_Wetland_Classification
 A sample workflow for classifying wetlands in Google Earth Engine.
 
-Important:
+Important: /b
 You will get bad results if your training points are of poor quality. 
 In an ideal workflow you will have training points that represent the full range of values for each class you are trying to distinguish.
 Training points should be:
