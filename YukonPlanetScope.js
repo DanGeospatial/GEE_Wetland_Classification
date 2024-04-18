@@ -1,4 +1,3 @@
-// This script uses code sourced from the Google Earth Engine help documentation.
 // This is the one to use for PlanetScope (PS_YK)
 
 Map.setCenter(-139.070748, 63.747046);
@@ -13,7 +12,7 @@ Map.addLayer(
 print(PS_YK, 'PS');
 
 //______________________________________________________________________________
-// Compute and rename indices
+// Compute and Rename Indices
 //______________________________________________________________________________
 // Normalized Difference Vegetation Index
 var ndvi = PS_YK.normalizedDifference(['b8', 'b6']).rename('ndvi');
@@ -65,17 +64,19 @@ img = img.clip(newpolygon);
 print(img);
 
 //______________________________________________________________________________
+// Train Random Forest Classifier
 //______________________________________________________________________________
 
-var bands = ['b4', 'b7', 'b8', 'ndwi', 'ndyi', 'gci', 'ndei', 'TWIRename'];
+var bands = ['b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'ndvi', 'ndwi', 'TWIRename', 'ndyi', 'gci', 'ndei', 'evi2'];
 // ['b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'ndvi', 'swaveHV', 'swaveHVHH', 'ndwi', 'TWIRename', 'ndyi', 'gci', 'ndei', 'evi2', 'SVI', 'SRI']
+// ['b4', 'b7', 'b8', 'ndwi', 'ndyi', 'gci', 'ndei', 'TWIRename']
 // This property of the table stores the land cover labels.
 var label = 'ClassID';
 
 // Create training and testing split (80%)
 var points = Yukon_points.randomColumn();
-var trainingPoints = points.filter('random <= 0.9');
-var testPoints = points.filter('random > 0.9');
+var trainingPoints = points.filter('random <= 0.8');
+var testPoints = points.filter('random > 0.8');
 
 // Overlay the points on the imagery to get training.
 var training = img.select(bands).sampleRegions({
@@ -94,14 +95,85 @@ var testing = img.select(bands).sampleRegions({
   scale: 3
 });
 
-// Train a SMILE RF classifier with 1000 trees
+// Generate Array Subsets:
+// This function is bad!
+// Do not do this in earth engine
+function getCombinations(array) {
+
+    function fork(i, t) {
+        if (i === array.length) {
+            result.push(t);
+            return;
+        }
+        fork(i + 1, t.concat([array[i]]));
+        fork(i + 1, t);
+    }
+
+    var result = [];
+    fork(0, []);
+    return result.slice(0, (result.length - 1));
+}
+print("Here");
+// Define Classifier and Search List
+var classifier = ee.Classifier.smileRandomForest({
+  numberOfTrees: 100,
+  seed: 541
+});
+var searchList = getCombinations(bands);
+
+// Run Recursive Feature Elimination
+function rfe(subset) {
+  
+  var testAcc = ee.List([]);
+  var varImp = ee.List([]);
+  
+  // Train Classifier
+  var itertrained = classifier.train({
+    features: training,
+    classProperty: label,
+    inputProperties: subset
+  });
+  
+  // Get Test Accuracy  
+  testAcc = testAcc.add(testing.classify(itertrained).errorMatrix(label, 'classification').accuracy());
+  
+  // Get Variable Importance
+  var dictiter = itertrained.explain();
+  var iterimportance = ee.Dictionary(dictiter.get('importance'));
+  varImp = varImp.add(iterimportance.keys());
+  
+  return [varImp, testAcc];
+}
+
+// List Helpers
+function firstItems(list){
+  return ee.List(list[0].flatten());
+}
+function secondItems(list){
+  return ee.List(list[1].getNumber(0));
+}
+
+// Store RFE Output
+var rfeControl = searchList.map(rfe);
+// Split the Dictionary Back Into Lists
+var varKeys = rfeControl.map(firstItems);
+var accKeys = rfeControl.map(secondItems);
+// Find the Bands with the Highest Accuracy
+var varBands = ee.List(varKeys);
+var varAcc = ee.List(accKeys);
+var maxValue = varAcc.reduce(ee.Reducer.max());
+var maxIndex = varAcc.indexOf(maxValue);
+// Retreive the Best Band Combination
+var bestBands = varBands.get(maxIndex);
+
+// Train a SMILE RF classifier with 100 trees on Optimal Variables
 var trained = ee.Classifier.smileRandomForest({
   numberOfTrees: 100,
   seed: 541
 }).train({
   features: training, 
   classProperty: label, 
-  inputProperties: bands
+  inputProperties: bestBands
 });
 
 // Create dictionary that stores the variable importance values from the smileRF classifier
@@ -135,6 +207,7 @@ var classified = img.select(bands).classify(trained);
 print(classified);
 
 //______________________________________________________________________________
+// Add Map and Export
 //______________________________________________________________________________
 
 // Prepare For Export
