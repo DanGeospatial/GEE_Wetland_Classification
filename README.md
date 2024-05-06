@@ -1,22 +1,22 @@
 # GEE_Wetland_Classification
-A sample workflow for classifying wetlands in Google Earth Engine.
+A workflow for classifying wetlands in Google Earth Engine using Landsat 8-9, Sentinel 2 and PlanetScope. 
 
 Important: <br />
 You will get bad results if your training points are of poor quality. 
-In an ideal workflow you will have training points that represent the full range of values for each class you are trying to distinguish.
+In an ideal workflow one would have training points that represent the full range of spectral values for each class you are trying to distinguish.
 Training points should be:
-- generated randomly across your AOI
+- generated randomly across your AOI (not clustered in specific areas)
 - sufficient number of points for each class, especially for those with similar physical properties
-- representative of value range for each class; limit point selection bias
+- class types should be logical
 
 Features:
 - Sentinel 2 Imagery with improved cloud masking using the sentinel2-cloud-detector library
 - Computes several indices that can be selected for classification
-- Incorporates, SAR, Elevation and Visual Imagery
+- Fusion of SAR, Elevation and Multispectral Imagery
 - Uses the Random Forest algorithm for Classification
-- Includes basic plots to determine model performance
+- Incorporates Recursive Feature Elimination
 
-Indices Computed Within Earth Engine:
+Indices Computed Within Earth Engine (LS & S2):
 - NDVI
 - NDMI
 - MNDWI
@@ -24,11 +24,17 @@ Indices Computed Within Earth Engine:
 - SVI
 - SRI
 
+Indices Computed Within Earth Engine (PS):
+
+
 Indices Computed Within SAGA GIS:
 - Topographic Wetness Index
 - Topographic Position Index
 - Downslope Distance Gradient
 
-Instructions:
+Instructions: <br />
+This project had two primary goals (1) to optimize classification accuracy using data fusion and recursive feature elimination and (2) to compare the capability of three satellite platforms to classify wetlands. In addition to these two primary goals the importance of Short-wave infrared (SWIR) images for wetland classification will also be tested. Landsat 8-9 and Sentinel 2 have SWIR bands whereas and PlanetScope does not. PlanetScope imagery is paid, but it has much higher temporal and spatial resolution than Landsat 8-9 or Sentinel 2. This project was tested in the Yukon, Canada which has experienced more frequent clouding in recent decades. 
+
+TBC
 
 Sources:
