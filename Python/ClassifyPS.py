@@ -1,7 +1,5 @@
 import ee
 
-from itertools import combinations
-
 import ray
 from ray import tune
 from ray.tune.search.hyperopt import HyperOptSearch
@@ -142,9 +140,8 @@ def subClassifier(inputs):
 
 
 def rfe(subset):
-
     # Get Test Accuracy
-    while subset.length().getInfo() > 15:
+    while subset.length().getInfo() > 3:
         subset = subClassifier(subset)
 
     global testAcc
@@ -163,8 +160,12 @@ print(bestBands.getInfo())
 # ______________________________________________________________________________
 # Train Random Forest Classifier
 # ______________________________________________________________________________
-"""
+
+ray.init(include_dashboard=False)
+
+
 def objective(config):
+    ee.Initialize()
     trained = ee.Classifier.smileRandomForest(
         numberOfTrees=config["numberOfTrees"],
         variablesPerSplit=config["variablesPerSplit"],
@@ -176,16 +177,20 @@ def objective(config):
         inputProperties=bestBands
     )
     testClassify = testing.classify(trained).errorMatrix(label, 'classification').accuracy()
-    tune.report({"acc": testClassify})
+    testnumb = float(testClassify.getInfo())
+    return {"acc": testnumb}
 
 
-method = HyperOptSearch()
-samples = 1000
+initial_params = [{"numberOfTrees": 1000, "variablesPerSplit": 8, "bagFraction": 0.95}]
+
+
+method = HyperOptSearch(points_to_evaluate=initial_params)
+samples = 200
 
 # Make sure upper bounds of VPS is not higher than input variables
 search_config = {
     "numberOfTrees": tune.qrandint(100, 1000, 100),
-    "variablesPerSplit": tune.qrandint(1, 10, 1),
+    "variablesPerSplit": tune.qrandint(1, ee.List(bestBands).length().getInfo(), 1),
     "bagFraction": tune.loguniform(0.1, 1)
 }
 
@@ -201,5 +206,24 @@ tuner = tune.Tuner(
 )
 results = tuner.fit()
 
+# These can them be passed to a final classifier
 print("Optimal hyperparameters: ", results.get_best_result().config)
-"""
+
+# Use optimal hyperparameters and bands to produce metrics
+optimaltrained = ee.Classifier.smileRandomForest(
+        numberOfTrees=results.get_best_result().config["numberOfTrees"],
+        variablesPerSplit=results.get_best_result().config["variablesPerSplit"],
+        bagFraction=results.get_best_result().config["bagFraction"],
+        seed=541
+    ).train(
+        features=training,
+        classProperty=label,
+        inputProperties=bestBands
+    )
+
+testClassify = testing.classify(optimaltrained).errorMatrix(label, 'classification')
+print(testClassify.getInfo())
+print(testClassify.accuracy().getInfo())
+
+# ray stop --force
+ray.shutdown()
