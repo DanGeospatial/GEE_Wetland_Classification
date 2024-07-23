@@ -13,7 +13,7 @@ ee.Initialize()
 # Load EE Assets
 # ______________________________________________________________________________
 
-PS_YK = ee.Image("users/danielnelsonca/Projects/YK_composite_PlanetScope")
+PS_YK = ee.Image("users/danielnelsonca/Projects/YK_composite_PS_v2")
 swavesHV = ee.Image("users/koreenmillard/larch2/RFDI_swave_sHV")
 swavesHVHH = ee.Image("users/koreenmillard/larch2/HVHH_swave_sHV")
 TWI4 = ee.Image("users/danielnelsonca/UndergradThesis/Topographic_Wetness_Index_v4")
@@ -186,11 +186,12 @@ initial_params = [{"numberOfTrees": 1000, "variablesPerSplit": 8, "bagFraction":
 
 method = HyperOptSearch(points_to_evaluate=initial_params)
 samples = 200
+maxvar = int(ee.List(bestBands).length().getInfo())
 
 # Make sure upper bounds of VPS is not higher than input variables
 search_config = {
     "numberOfTrees": tune.qrandint(100, 1000, 100),
-    "variablesPerSplit": tune.qrandint(1, ee.List(bestBands).length().getInfo(), 1),
+    "variablesPerSplit": tune.qrandint(1, maxvar, 1),
     "bagFraction": tune.loguniform(0.1, 1)
 }
 
