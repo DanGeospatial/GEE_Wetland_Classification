@@ -30,7 +30,7 @@ ee.Initialize()
 # ______________________________________________________________________________
 
 PS_YK = ee.Image("users/danielnelsonca/Projects/YK_composite_PS_v2")
-# TODO Investigate SAR indexes further
+# Investigate SAR indexes further
 swavesHV = ee.Image("users/koreenmillard/larch2/RFDI_swave_sHV")
 swavesHVHH = ee.Image("users/koreenmillard/larch2/HVHH_swave_sHV")
 TWI4 = ee.Image("users/danielnelsonca/UndergradThesis/Topographic_Wetness_Index_v4")
