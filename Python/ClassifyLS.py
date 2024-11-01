@@ -29,11 +29,11 @@ ee.Initialize(project='ee-nelson-remote-sensing')
 # Load EE Assets
 # ______________________________________________________________________________
 
-PS_YK = ee.Image("users/danielnelsonca/Projects/YK_composite_PS_v2")
 TWI4 = ee.Image("users/danielnelsonca/UndergradThesis/Topographic_Wetness_Index_v4")
 TPI2 = ee.Image("users/danielnelsonca/UndergradThesis/Topographic_Position_Index_v2")
 newpolygon = ee.FeatureCollection("users/danielnelsonca/UndergradThesis/newpolygon")
 Yukon_points_merged = ee.FeatureCollection("users/danielnelsonca/UndergradThesis/Yukon_points_merged")
+LS_dataset = ee.ImageCollection('LANDSAT/LC08/C02/T1_L2').merge(ee.ImageCollection('LANDSAT/LC09/C02/T1_L2'))
 
 
 # ______________________________________________________________________________
@@ -67,49 +67,60 @@ img_VH = (
     .mean()
 )
 
+
 # ______________________________________________________________________________
 # Filter Landsat Images
 # ______________________________________________________________________________
+def apply_scale_factors(image):
+    optical_bands = image.select('SR_B.').multiply(0.0000275).add(-0.2)
+    thermal_bands = image.select('ST_B.*').multiply(0.00341802).add(149.0)
+    return image.addBands(optical_bands, None, True).addBands(
+        thermal_bands, None, True
+    )
 
 
-
+img_LS = (
+    LS_dataset
+    .filter(ee.Filter.date('2023-07-01', '2023-08-25'))
+    .filter(ee.Filter.lessThanOrEquals('CLOUD_COVER', 5))
+    .map(apply_scale_factors)
+    .median()
+)
 # ______________________________________________________________________________
 # Compute and Rename Indices
 # ______________________________________________________________________________
 # Normalized Difference Vegetation Index
-ndvi = PS_YK.normalizedDifference(['b8', 'b6']).rename('ndvi')
+ndvi = img_LS.normalizedDifference(['SR_B5', 'SR_B4']).rename('ndvi')
 # Normalized Difference Water Index
-ndwi = PS_YK.normalizedDifference(['b4', 'b8']).rename('ndwi')
-# Modified Normalized Difference Yellowness Index
-NDYI = PS_YK.normalizedDifference(['b5', 'b2']).rename('ndyi')
+ndwi = img_LS.normalizedDifference(['SR_B3', 'SR_B5']).rename('ndwi')
+# Normalized Difference Moisture Index
+ndmi = img_LS.normalizedDifference(['SR_B5', 'SR_B6']).rename('ndmi')
 # Green 1 Chlorophyll Index
-GCI = PS_YK.expression(
+GCI = img_LS.expression(
     '(NIR / GREEN) - 1', {
-        'NIR': PS_YK.select('b8'),
-        'GREEN': PS_YK.select('b3')
+        'NIR': img_LS.select('SR_B5'),
+        'GREEN': img_LS.select('SR_B3')
     }).rename('gci')
-# Yellow Edge Index
-NDEI = PS_YK.normalizedDifference(['b7', 'b5']).rename('ndei')
 # Enhanced Vegetation Index
-evi2 = PS_YK.expression(
+evi2 = img_LS.expression(
     '2.5 * ((NIR - RED) / (NIR + 2.4 * RED + 1))', {
-        'NIR': PS_YK.select('b8'),
-        'RED': PS_YK.select('b6')
+        'NIR': img_LS.select('SR_B5'),
+        'RED': img_LS.select('SR_B4')
     }).rename('evi2')
 # Standardized Vegetation Index
-SVI = PS_YK.expression(
+SVI = img_LS.expression(
     '1.5 * ((NIR - RED) / (NIR - RED + 0.5))', {
-        'NIR': PS_YK.select('b8'),
-        'RED': PS_YK.select('b6')
+        'NIR': img_LS.select('SR_B5'),
+        'RED': img_LS.select('SR_B4')
     }).rename('SVI')
 # Simple Ratio Index
-SRI = PS_YK.select('b8').divide(PS_YK.select('b6')).rename('SRI')
+SRI = img_LS.select('SR_B5').divide(img_LS.select('SR_B4')).rename('SRI')
 
 # add wetness index
 TWIRename = TWI4.select('b1').rename('TWIRename')
 
 # Concatenate the ps imagery with the elevation dataset and topographic indexes
-img = ee.Image.cat([PS_YK, TWIRename, ndvi, ndwi, NDYI, evi2, SVI, SRI, NDEI, GCI, img_VH, img_vv])
+img = ee.Image.cat([img_LS, TWIRename, ndvi, ndwi, ndmi, evi2, SVI, SRI, GCI, img_VH, img_vv])
 img = img.clip(newpolygon)
 
 # ______________________________________________________________________________
@@ -118,8 +129,8 @@ img = img.clip(newpolygon)
 
 # Get all the band names to search
 bands = ee.List(
-    ['b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'ndvi', 'ndwi', 'TWIRename', 'ndyi', 'gci',
-     'ndei', 'evi2', 'SVI', 'SRI', 'VH', 'VV'])
+    ['SR_B2', 'SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', 'ST_B10', 'ndvi', 'ndwi', 'TWIRename', 'ndmi', 'gci',
+     'evi2', 'SVI', 'SRI', 'VH', 'VV'])
 
 # This property of the table stores the land cover labels.
 label = 'ClassID'

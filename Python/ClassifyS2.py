@@ -29,7 +29,6 @@ ee.Initialize(project='ee-nelson-remote-sensing')
 # Load EE Assets
 # ______________________________________________________________________________
 
-PS_YK = ee.Image("users/danielnelsonca/Projects/YK_composite_PS_v2")
 TWI4 = ee.Image("users/danielnelsonca/UndergradThesis/Topographic_Wetness_Index_v4")
 TPI2 = ee.Image("users/danielnelsonca/UndergradThesis/Topographic_Position_Index_v2")
 newpolygon = ee.FeatureCollection("users/danielnelsonca/UndergradThesis/newpolygon")
