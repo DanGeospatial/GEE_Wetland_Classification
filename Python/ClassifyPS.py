@@ -23,20 +23,49 @@ from hyperopt import hp
 
 # Initialize Earth Engine Api
 # More information at developers.google.com/earth-engine/guides/python_install-conda#windows
-ee.Initialize()
+ee.Initialize(project='ee-nelson-remote-sensing')
 
 # ______________________________________________________________________________
 # Load EE Assets
 # ______________________________________________________________________________
 
 PS_YK = ee.Image("users/danielnelsonca/Projects/YK_composite_PS_v2")
-# Investigate SAR indexes further
-swavesHV = ee.Image("users/koreenmillard/larch2/RFDI_swave_sHV")
-swavesHVHH = ee.Image("users/koreenmillard/larch2/HVHH_swave_sHV")
 TWI4 = ee.Image("users/danielnelsonca/UndergradThesis/Topographic_Wetness_Index_v4")
 TPI2 = ee.Image("users/danielnelsonca/UndergradThesis/Topographic_Position_Index_v2")
 newpolygon = ee.FeatureCollection("users/danielnelsonca/UndergradThesis/newpolygon")
 Yukon_points_merged = ee.FeatureCollection("users/danielnelsonca/UndergradThesis/Yukon_points_merged")
+
+
+# ______________________________________________________________________________
+# Filter SAR Data
+# ______________________________________________________________________________
+# Investigate SAR indexes further
+
+def mask_edge(image):
+    edge = image.lt(-30.0)
+    masked_image = image.mask().And(edge.Not())
+    return image.updateMask(masked_image)
+
+
+img_vv = (
+    ee.ImageCollection('COPERNICUS/S1_GRD')
+    .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+    .filter(ee.Filter.eq('instrumentMode', 'IW'))
+    .filter(ee.Filter.date('2023-07-01', '2023-07-20'))
+    .select('VV')
+    .map(mask_edge)
+    .mean()
+)
+
+img_VH = (
+    ee.ImageCollection('COPERNICUS/S1_GRD')
+    .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VH'))
+    .filter(ee.Filter.eq('instrumentMode', 'IW'))
+    .filter(ee.Filter.date('2023-07-01', '2023-07-20'))
+    .select('VH')
+    .map(mask_edge)
+    .mean()
+)
 
 # ______________________________________________________________________________
 # Compute and Rename Indices
@@ -73,14 +102,8 @@ SRI = PS_YK.select('b8').divide(PS_YK.select('b6')).rename('SRI')
 # add wetness index
 TWIRename = TWI4.select('b1').rename('TWIRename')
 
-# add swaveHV
-swaveHV = swavesHV.select('b1').rename('swaveHV')
-
-# add swaveHVHH
-swaveHVHH = swavesHVHH.select('b1').rename('swaveHVHH')
-
 # Concatenate the ps imagery with the elevation dataset and topographic indexes
-img = ee.Image.cat([PS_YK, TWIRename, swaveHV, swaveHVHH, ndvi, ndwi, NDYI, evi2, SVI, SRI, NDEI, GCI])
+img = ee.Image.cat([PS_YK, TWIRename, ndvi, ndwi, NDYI, evi2, SVI, SRI, NDEI, GCI, img_VH, img_vv])
 img = img.clip(newpolygon)
 
 # ______________________________________________________________________________
@@ -89,8 +112,8 @@ img = img.clip(newpolygon)
 
 # Get all the band names to search
 bands = ee.List(
-    ['b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'ndvi', 'swaveHV', 'swaveHVHH', 'ndwi', 'TWIRename', 'ndyi', 'gci',
-     'ndei', 'evi2', 'SVI', 'SRI'])
+    ['b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'ndvi', 'ndwi', 'TWIRename', 'ndyi', 'gci',
+     'ndei', 'evi2', 'SVI', 'SRI', 'VH', 'VV'])
 
 # This property of the table stores the land cover labels.
 label = 'ClassID'
@@ -182,7 +205,7 @@ ray.init(include_dashboard=False)
 
 
 def objective(config):
-    ee.Initialize()
+    ee.Initialize(project='ee-nelson-remote-sensing')
     trained = ee.Classifier.smileRandomForest(
         numberOfTrees=config["numberOfTrees"],
         variablesPerSplit=config["variablesPerSplit"],
@@ -200,7 +223,6 @@ def objective(config):
 
 initial_params = [{"numberOfTrees": 1000, "variablesPerSplit": 8, "bagFraction": 0.95}]
 
-
 method = HyperOptSearch(points_to_evaluate=initial_params)
 samples = 200
 maxvar = int(ee.List(bestBands).length().getInfo())
@@ -212,13 +234,15 @@ search_config = {
     "bagFraction": tune.loguniform(0.1, 1)
 }
 
+# Reduce the number of concurrent trials to keep GEE happy
 tuner = tune.Tuner(
     objective,
     tune_config=tune.TuneConfig(
         metric="acc",
         mode="max",
         search_alg=method,
-        num_samples=samples
+        num_samples=samples,
+        max_concurrent_trials=10
     ),
     param_space=search_config,
 )
@@ -229,15 +253,15 @@ print("Optimal hyperparameters: ", results.get_best_result().config)
 
 # Use optimal hyperparameters and bands to produce metrics
 optimaltrained = ee.Classifier.smileRandomForest(
-        numberOfTrees=results.get_best_result().config["numberOfTrees"],
-        variablesPerSplit=results.get_best_result().config["variablesPerSplit"],
-        bagFraction=results.get_best_result().config["bagFraction"],
-        seed=541
-    ).train(
-        features=training,
-        classProperty=label,
-        inputProperties=bestBands
-    )
+    numberOfTrees=results.get_best_result().config["numberOfTrees"],
+    variablesPerSplit=results.get_best_result().config["variablesPerSplit"],
+    bagFraction=results.get_best_result().config["bagFraction"],
+    seed=541
+).train(
+    features=training,
+    classProperty=label,
+    inputProperties=bestBands
+)
 
 testClassify = testing.classify(optimaltrained).errorMatrix(label, 'classification')
 print(testClassify.getInfo())
