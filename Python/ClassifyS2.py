@@ -33,6 +33,7 @@ TWI4 = ee.Image("users/danielnelsonca/UndergradThesis/Topographic_Wetness_Index_
 TPI2 = ee.Image("users/danielnelsonca/UndergradThesis/Topographic_Position_Index_v2")
 newpolygon = ee.FeatureCollection("users/danielnelsonca/UndergradThesis/newpolygon")
 Yukon_points_merged = ee.FeatureCollection("users/danielnelsonca/UndergradThesis/Yukon_points_merged")
+s2_dataset = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
 
 
 # ______________________________________________________________________________
@@ -66,47 +67,57 @@ img_VH = (
     .mean()
 )
 
+
 # ______________________________________________________________________________
 # Filter Sentinel-2 Images
 # ______________________________________________________________________________
+def apply_scale_factors(image):
+    return image.divide(10000)
+
+
+img_s2 = (
+    s2_dataset
+    .filter(ee.Filter.date('2023-07-01', '2023-08-25'))
+    .filter(ee.Filter.lessThanOrEquals('CLOUDY_PIXEL_PERCENTAGE', 5))
+    .map(apply_scale_factors)
+    .median()
+)
 
 # ______________________________________________________________________________
 # Compute and Rename Indices
 # ______________________________________________________________________________
 # Normalized Difference Vegetation Index
-ndvi = PS_YK.normalizedDifference(['b8', 'b6']).rename('ndvi')
+ndvi = img_s2.normalizedDifference(['B8', 'B4']).rename('ndvi')
 # Normalized Difference Water Index
-ndwi = PS_YK.normalizedDifference(['b4', 'b8']).rename('ndwi')
-# Modified Normalized Difference Yellowness Index
-NDYI = PS_YK.normalizedDifference(['b5', 'b2']).rename('ndyi')
+ndwi = img_s2.normalizedDifference(['B4', 'B8']).rename('ndwi')
+# Normalized Difference Moisture Index
+ndmi = img_s2.normalizedDifference(['B8', 'B11']).rename('ndmi')
 # Green 1 Chlorophyll Index
-GCI = PS_YK.expression(
+GCI = img_s2.expression(
     '(NIR / GREEN) - 1', {
-        'NIR': PS_YK.select('b8'),
-        'GREEN': PS_YK.select('b3')
+        'NIR': img_s2.select('B8'),
+        'GREEN': img_s2.select('B3')
     }).rename('gci')
-# Yellow Edge Index
-NDEI = PS_YK.normalizedDifference(['b7', 'b5']).rename('ndei')
 # Enhanced Vegetation Index
-evi2 = PS_YK.expression(
+evi2 = img_s2.expression(
     '2.5 * ((NIR - RED) / (NIR + 2.4 * RED + 1))', {
-        'NIR': PS_YK.select('b8'),
-        'RED': PS_YK.select('b6')
+        'NIR': img_s2.select('B8'),
+        'RED': img_s2.select('B4')
     }).rename('evi2')
 # Standardized Vegetation Index
-SVI = PS_YK.expression(
+SVI = img_s2.expression(
     '1.5 * ((NIR - RED) / (NIR - RED + 0.5))', {
-        'NIR': PS_YK.select('b8'),
-        'RED': PS_YK.select('b6')
+        'NIR': img_s2.select('B8'),
+        'RED': img_s2.select('B4')
     }).rename('SVI')
 # Simple Ratio Index
-SRI = PS_YK.select('b8').divide(PS_YK.select('b6')).rename('SRI')
+SRI = img_s2.select('B8').divide(img_s2.select('B4')).rename('SRI')
 
 # add wetness index
 TWIRename = TWI4.select('b1').rename('TWIRename')
 
 # Concatenate the ps imagery with the elevation dataset and topographic indexes
-img = ee.Image.cat([PS_YK, TWIRename, ndvi, ndwi, NDYI, evi2, SVI, SRI, NDEI, GCI, img_VH, img_vv])
+img = ee.Image.cat([img_s2, TWIRename, ndvi, ndwi, ndmi, evi2, SVI, SRI, GCI, img_VH, img_vv])
 img = img.clip(newpolygon)
 
 # ______________________________________________________________________________
@@ -115,8 +126,8 @@ img = img.clip(newpolygon)
 
 # Get all the band names to search
 bands = ee.List(
-    ['b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8', 'ndvi', 'ndwi', 'TWIRename', 'ndyi', 'gci',
-     'ndei', 'evi2', 'SVI', 'SRI', 'VH', 'VV'])
+    ['B2', 'B3', 'B4', 'B5', 'B6', 'B7', 'B8', 'B8A', 'B11', 'B12', 'ndvi', 'ndwi', 'TWIRename', 'ndmi', 'gci',
+     'evi2', 'SVI', 'SRI', 'VH', 'VV'])
 
 # This property of the table stores the land cover labels.
 label = 'ClassID'

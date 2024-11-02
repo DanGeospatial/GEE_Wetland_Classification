@@ -18,15 +18,23 @@ Features:
 - Incorporates Recursive Feature Elimination for band selection
 
 Indices Computed Within Earth Engine (LS & S2):
-- NDVI
-- NDMI
-- MNDWI
-- EVI2
-- SVI
-- SRI
+- Normalized Difference Vegetation Index
+- Normalized Difference Water Index
+- Normalized Difference Moisture Index
+- Green 1 Chlorophyll Index
+- Enhanced Vegetation Index
+- Standardized Vegetation Index
+- Simple Ratio Index
 
 Indices Computed Within Earth Engine (PS):
-
+- Normalized Difference Vegetation Index
+- Normalized Difference Water Index
+- Modified Normalized Difference Yellowness Index
+- Green 1 Chlorophyll Index
+- Yellow Edge Index
+- Enhanced Vegetation Index
+- Standardized Vegetation Index
+- Simple Ratio Index
 
 Indices Computed Within SAGA GIS:
 - Topographic Wetness Index
