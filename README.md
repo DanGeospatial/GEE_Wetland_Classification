@@ -76,7 +76,7 @@ Sentinel 2:
 - VH
 - VV 
 
-Landsat 8-9: ['SR_B3', 'SR_B4', 'SR_B5', 'SR_B6', 'SR_B7', 'ST_B10', 'ndvi', 'ndwi', 'TWIRename', 'ndmi', 'gci', 'evi2', 'SVI', 'VV']
+Landsat 8-9:
 - b3, b4, b5, b6, b7, ST10
 - Normalized Difference Vegetation Index
 - Normalized Difference Water Index
